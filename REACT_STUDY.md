@@ -411,10 +411,714 @@ function NumberList(props) {
 
 ### 表单
 
-1. 受控组件
+**受控组件**
 
 通常 HTML 表单元素自己维护 state，并根据用户输入进行更新。如果我们把状态和更新通过 React 的 state 和  setState() 来接管，那么其就变成了一个“受控组件”。
 
+受控组件和原生在一些地方有些许不同，需要我们留意！！！
+
+1. input && textarea
+
+对于 input 或者 textarea 元素我们可以通过“监听 onInput/onChange”和“绑定 value 属性”进行控制，由于一些原因，[onInput/onChange 的表现是一致的](https://stackoverflow.com/questions/38256332/in-react-whats-the-difference-between-onchange-and-oninput)
+
+不同类型的 input 有不同的方式，`checkbox` 使用 `checked` 属性
+
+```html
+<input
+  name="isGoing"
+  type="checkbox"
+  checked={this.state.isGoing}
+  onChange={this.handleInputChange} />
+```
+
+2. select 标签
+
+原生标签使用 selected 属性来标记默认选中，React 并不会使用 selected 属性，而是在根 select 标签上使用 value 属性。这在受控组件中更便捷，因为您只需要在根标签中更新它
+
+```html
+<!-- 下拉单选 -->
+<select value={this.state.value} onChange={this.handleChange}>
+  <option value="grapefruit">葡萄柚</option>
+  <option value="lime">酸橙</option>
+</select>
+
+<!-- 下拉多选 -->
+<select multiple={true} value={['B', 'C']}>
+  <option value="A">葡萄柚</option>
+  <option value="B">酸橙</option>
+  <option value="C">椰子</option>
+</select>
+```
+
+3. 处理多个输入
+
+当需要处理多个 input 元素时，我们可以给每个元素添加 name 属性，并让处理函数根据 event.target.name 的值选择要执行的操作
+
+**非受控组件**
+
+在大多数情况下，我们推荐使用 受控组件 来处理表单数据。在一个受控组件中，表单数据是由 React 组件来管理的。另一种替代方案是使用非受控组件，这时表单数据将交由 DOM 节点来处理。
+
+要编写一个非受控组件，而不是为每个状态更新都编写数据处理函数，你可以 使用 ref 来从 DOM 节点中获取表单数据。
+
+### 状态提升
+
+在 React 中，将多个组件中需要共享的 state 向上移动到它们的最近共同父组件中，便可实现共享 state。这就是所谓的“状态提升”
+
+### 组合 VS 继承！！
+
+React 有十分强大的组合模式。我们推荐使用组合而非继承来实现组件间的代码重用。
+
+Props 和组合为你提供了清晰而安全地定制组件外观和行为的灵活方式。注意：组件可以接受任意 props，包括基本数据类型，React 元素以及函数。
+
+1. 组合多个组件
+
+我们通过 JSX 嵌套和一个特殊的 `children prop`来达到其他库中 `slot`（插槽）的效果
+```JSX
+function FancyBorder(props) {
+  return (
+    <div className={'FancyBorder FancyBorder-' + props.color}>{props.children}</div>
+  );
+}
+function WelcomeDialog() {
+  return (
+    <FancyBorder color="blue">
+      <h1 className="Dialog-title">Welcome</h1>
+      <p className="Dialog-message">Thank you for visiting our spacecraft!</p>
+    </FancyBorder>
+  );
+}
+```
+
+自定义命名，以 prop 形式传递
+
+>React 元素本质就是对象（object），所以你可以把它们当作 props，像其他数据一样传递
+```JSX
+function SplitPane(props) {
+  return (
+    <div className="SplitPane">
+      <div className="SplitPane-left">{props.left}</div>
+      <div className="SplitPane-right">{props.right}</div>
+    </div>
+  );
+}
+function App() {
+  return (
+    <SplitPane
+      left={ <Contacts /> }
+      right={ <Chat /> } />
+  );
+}
+```
+
+2. 关于继承
+
+我们并没有发现需要使用继承来构建组件层次的情况。Props 和组合为你提供了清晰而安全地定制组件外观和行为的灵活方式
+
+
+
+
+
+
+
+## 高级指引
+
+### 代码分割
+
+代码分割对于大型应用是很有必要的
+- 按需加载，避免加载用户永远不需要的代码
+- 减少主包大小，加快首页渲染速度
+
+在 React 中配合 webpcak 实现 code split 有这么几种方式：
+
+1. import() 动态引入
+
+此方式已经在 CRA 中开箱即用；
+```js
+import("./math").then(math => {
+  console.log(math.add(16, 26));
+});
+```
+
+2. React.lazy
+
+React.lazy 函数能让你像渲染常规组件一样处理动态引入（的组件），然后应在 Suspense 组件中渲染 lazy 组件，如此使得我们可以使用在等待加载 lazy 组件时做优雅降级（如 loading 指示器等）
+
+如果模块加载失败（如网络问题），它会触发一个错误。你可以通过异常捕获边界（Error boundaries）技术来处理这些情况，以显示良好的用户体验并管理恢复事宜
+
+>React.lazy 目前只支持默认导出（default exports）
+
+```js
+import React, { Suspense } from 'react';
+import MyErrorBoundary from './MyErrorBoundary';
+
+const OtherComponent = React.lazy(() => import('./OtherComponent'));
+const AnotherComponent = React.lazy(() => import('./AnotherComponent'));
+
+const MyComponent = () => (
+  <div>
+    <MyErrorBoundary>
+      <Suspense fallback={<div>Loading...</div>}>
+        <section>
+          <OtherComponent />
+          <AnotherComponent />
+        </section>
+      </Suspense>
+    </MyErrorBoundary>
+  </div>
+);
+```
+
+3. 基于路由的代码分割
+
+使用 React.lazy 和 React Router 这类的第三方库，来配置基于路由的代码分割
+
+```js
+import React, { Suspense, lazy } from 'react';
+import { BrowserRouter as Router, Route, Switch } from 'react-router-dom';
+
+const Home = lazy(() => import('./routes/Home'));
+const About = lazy(() => import('./routes/About'));
+const App = () => (
+  <Router>
+    <Suspense fallback={<div>Loading...</div>}>
+      <Switch>
+        <Route exact path="/" component={Home}/>
+        <Route path="/about" component={About}/>
+      </Switch>
+    </Suspense>
+  </Router>
+);
+```
+
+### Context？？
+
+Context 与 vue 中的 provide/inject 类似，提供了一个无需为每层组件手动添加 props，就能在组件树间进行数据传递的方法。但如果滥用这种方法将会使你的应用变的难以维护，[这里是 vue 的说明](https://cn.vuejs.org/v2/guide/components-edge-cases.html#%E4%BE%9D%E8%B5%96%E6%B3%A8%E5%85%A5)。
+
+Context 和 provide/inject 主要在开发高阶插件/组件库时使用，并不推荐用于普通应用程序代码中。一般如果几个组件是强关联的，我们就可以巧妙使用这种方式。
+
+使用方式如下：
+```js
+// Context 可以让我们无须明确地传遍每一个组件，就能将值深入传递进组件树。
+// 为当前的 theme 创建一个 context（“light”为默认值）。
+const ThemeContext = React.createContext('light');
+class App extends React.Component {
+  render() {
+    // 使用一个 Provider 来将当前的 theme 传递给以下的组件树。
+    // 无论多深，任何组件都能读取这个值。
+    // 在这个例子中，我们将 “dark” 作为当前的值传递下去。
+    return (
+      <ThemeContext.Provider value="dark">
+        <Toolbar />
+      </ThemeContext.Provider>
+    );
+  }
+}
+// 中间的组件再也不必指明往下传递 theme 了。
+function Toolbar() {
+  return <div><ThemedButton /></div>;
+}
+class ThemedButton extends React.Component {
+  // 指定 contextType 读取当前的 theme context。
+  // React 会往上找到最近的 theme Provider，然后使用它的值。
+  // 在这个例子中，当前的 theme 值为 “dark”。
+  static contextType = ThemeContext;
+  render() {
+    return <Button theme={this.context} />;
+  }
+}
+```
+
+关于 context 还有很多值得多，等遇到具体的场景再来分析？？
+
+### 错误边界！！
+
+部分 UI 的 JavaScript 错误不应该导致整个应用崩溃，为了解决这个问题，React 16 引入了一个新的概念 —— 错误边界。
+
+错误边界是一种 React 组件，这种组件可以捕获并打印发生在其子组件树任何位置的 JavaScript 错误，并且，它会渲染出备用 UI，而不是渲染那些崩溃了的子组件树。错误边界在渲染期间、生命周期方法和整个组件树的构造函数中捕获错误。
+
+>注意，错误边界无法捕获以下场景中产生的错误：
+>- 事件处理
+>- 异步代码（例如 setTimeout 或 requestAnimationFrame 回调函数）
+>- 服务端渲染
+>- 它自身抛出来的错误（并非它的子组件）
+
+定义一个错误边界组件很简单：
+- 只有 class 组件才可以成为错误边界组件
+- 定义了 `static getDerivedStateFromError()` 或 `componentDidCatch()` 这两个生命周期方法中的任意一个（或两个）
+- 当抛出错误后，请使用 static getDerivedStateFromError() 渲染备用 UI ，使用 componentDidCatch() 打印错误信息
+
+```js
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError(error) {
+    // 更新 state 使下一次渲染能够显示降级后的 UI
+    return { hasError: true };
+  }
+  componentDidCatch(error, errorInfo) {
+    // 你同样可以将错误日志上报给服务器
+    logErrorToMyService(error, errorInfo);
+  }
+  render() {
+    if (this.state.hasError) {
+      // 你可以自定义降级后的 UI 并渲染
+      return <h1>Something went wrong.</h1>;
+    }
+    return this.props.children; 
+  }
+}
+
+// 使用很简单，可以将它作为一个常规组件去使用
+<ErrorBoundary>
+  <MyWidget />
+</ErrorBoundary>
+```
+
+>注意错误边界仅可以捕获其子组件的错误，它无法捕获其自身的错误。如果一个错误边界无法渲染错误信息，则错误会冒泡至最近的上层错误边界，这也类似于 JavaScript 中 catch {} 的工作机制
+
+**错误边界应该放置在哪？？**
+
+错误边界的粒度由你来决定，可以将其包装在最顶层的路由组件并为用户展示一个 “Something went wrong” 的错误信息，就像服务端框架经常处理崩溃一样。你也可以将单独的部件包装在错误边界以保护应用其他部分不崩溃
+
+**关于事件处理器？？**
+
+错误边界无法捕获事件处理器内部的错误。
+
+React 不需要错误边界来捕获事件处理器中的错误。与 render 方法和生命周期方法不同，事件处理器不会在渲染期间触发。因此，如果它们抛出异常，React 仍然能够知道需要在屏幕上显示什么。
+
+如果你需要在事件处理器内部捕获错误，使用普通的 JavaScript try / catch 语句
+
+### Refs 转发？？
+
+Ref 转发是一项将 ref 自动地通过组件传递到其一子组件的技巧，对于大多数情况通常不必须，防止组件过度依赖其他组件的 DOM 结构。但对于某些可重用的组件是有用的。
+
+一个简单的使用案例：
+```js
+const FancyButton = React.forwardRef((props, ref) => (
+  <button ref={ref} className="FancyButton">
+    {props.children}
+  </button>
+));
+
+// 你可以直接获取 DOM button 的 ref：
+const ref = React.createRef();
+<FancyButton ref={ref}>Click me!</FancyButton>;
+```
+
+以下是对上述示例发生情况的逐步解释：
+
+- 我们通过调用 React.createRef 创建了一个 React ref 并将其赋值给 ref 变量。
+- 我们通过指定 ref 为 JSX 属性，将其向下传递给 `<FancyButton ref={ref}>`。
+- React 传递 ref 给 forwardRef 内函数 (props, ref) => ...，作为其第二个参数。
+- 我们向下转发该 ref 参数到 `<button ref={ref}>`，将其指定为 JSX 属性。
+- 当 ref 挂载完成，ref.current 将指向 `<button>` DOM 节点。
+
+
+>注意：
+>1. 第二个参数 ref 只在使用 React.forwardRef 定义组件时存在。常规函数和 class 组件不接收 ref 参数，且 props 中也不存在 ref！！
+>2. Ref 转发不仅限于 DOM 组件，你也可以转发 refs 到 class 组件实例中。
+
+**在 HOC 中的使用**
+
+因为 HOC 会返回一个新组件，而且 ref 不是 props 属性，就像 key 一样，其被 React 进行了特殊处理。所以在 HOC 上添加 ref，该 ref 将引用最外层的容器组件，而不是被包裹的组件。我们可以这样做：
+
+```js
+function logProps(Component) {
+  class LogProps extends React.Component {
+    componentDidUpdate(prevProps) {
+      console.log('old props:', prevProps);
+      console.log('new props:', this.props);
+    }
+    render() {
+      const {forwardedRef, ...rest} = this.props;
+      // 将自定义的 prop 属性 “forwardedRef” 定义为 ref
+      return <Component ref={forwardedRef} {...rest} />;
+    }
+  }
+  // 注意 React.forwardRef 回调的第二个参数 “ref”。
+  // 我们可以将其作为常规 prop 属性传递给 LogProps，例如 “forwardedRef”
+  // 然后它就可以被挂载到被 LogProps 包裹的子组件上。
+  return React.forwardRef((props, ref) => {
+    return <LogProps {...props} forwardedRef={ref} />;
+  });
+}
+```
+
+### Fragments
+
+Fragments 类似于 vue 中的 template。Fragments 允许你将子列表分组，而无需向 DOM 添加额外节点
+
+一种常见模式是组件返回一个子元素列表，如下：`<Columns />` 需要返回多个 `<td>` 元素以使渲染的 HTML 有效。如果在 `<Columns />` 的 render() 中使用了父 div，则生成的 HTML 将无效，Fragments 可以解决次问题
+
+```js
+class Table extends React.Component {
+  render() {
+    return (
+      <table>
+        <tr><Columns /></tr>
+      </table>
+    );
+  }
+}
+// 通过 React.Fragment 包裹
+class Columns extends React.Component {
+  render() {
+    return (
+      <React.Fragment>
+        <td>Hello</td>
+        <td>World</td>
+      </React.Fragment>
+    );
+  }
+}
+```
+
+>key 是唯一可以传递给 Fragment 的属性。你可以使用 Fragments 的短语法 `<> </>`，看起来就像个空标签，但它不支持 key 或属性
+
+### 高阶函数（HOC）！！？？
+
+高阶组件（HOC）是 React 中用于复用组件逻辑的一种高级技巧。HOC 自身不是 React API 的一部分，它是一种基于 React 的组合特性而形成的设计模式。
+
+HOC 有点类似于 Decorator，函数式编程方式的一种，但它不允许对传入的内容做修改。高阶组件是参数为组件，返回值为新组件的函数
+
+HOC 在 React 的第三方库中很常见，例如 Redux 的 connect 和 Relay 的 createFragmentContainer
+
+**为什么使用高阶组件？**
+
+使用 HOC 解决横切关注点问题，即多个组件之间复用相同逻辑。以前我们使用 mixins 来解决，[但它的问题更多](https://zh-hans.reactjs.org/blog/2016/07/13/mixins-considered-harmful.html)，诸如：命名冲突，依赖不明确...而 HOC 是以组合的方式对原组件进行扩展，而且 HOC 是纯函数，没有副作用。
+
+**HOC 的使用注意事项？**
+
+1. HOC 不应该修改传入组件，而应该使用组合的方式，通过将组件包装在容器组件中实现功能
+
+您可能已经注意到 HOC 与容器组件模式之间有相似之处。容器组件担任将高级和低级关注点分离的责任，由容器管理订阅和状态，并将 prop 传递给处理 UI 的组件。HOC 使用容器作为其实现的一部分，你可以将 HOC 视为参数化容器组件。
+
+2. 将不相关的 props 传递给被包裹的组件
+
+HOC 为组件添加特性。自身不应该大幅改变约定。HOC 返回的组件与原组件应保持类似的接口。HOC 应该透传与自身无关的 props。如下（伪代码）：
+
+```js
+render() {
+  // 过滤掉非此 HOC 额外的 props，且不要进行透传
+  const { extraProp, ...passThroughProps } = this.props;
+  // 将 props 注入到被包装的组件中。
+  // 通常为 state 的值或者实例方法。
+  const injectedProp = someStateOrInstanceMethod;
+  // 将 props 传递给被包装组件
+  return (
+    <WrappedComponent injectedProp={injectedProp} {...passThroughProps} />
+  );
+}
+```
+
+3. 包装显示名称以便轻松调试
+
+HOC 创建的容器组件会与任何其他组件一样，会显示在 React Developer Tools 中。为了方便调试，请选择一个显示名称，以表明它是 HOC 的产物
+
+```js
+function withSubscription(WrappedComponent) {
+  class WithSubscription extends React.Component {/* ... */};
+  const name = WrappedComponent.displayName || WrappedComponent.name || 'Component';
+  WithSubscription.displayName = `WithSubscription(${name})`;
+  return WithSubscription;
+}
+```
+
+4. 不要在 render 方法中使用 HOC
+
+```js
+render() {
+  // 每次调用 render 函数都会创建一个新的 EnhancedComponent
+  // EnhancedComponent1 !== EnhancedComponent2
+  const EnhancedComponent = enhance(MyComponent);
+  // 这将导致子树每次渲染都会进行卸载，和重新挂载的操作！
+  return <EnhancedComponent />;
+}
+```
+React 的 diff 算法（称为协调）使用组件标识来确定它是应该更新现有子树还是将其丢弃并挂载新子树。 如果从 render 返回的组件与前一个渲染中的组件相同（===），则 React 通过将子树与新子树进行区分来递归更新子树。 如果它们不相等，则完全卸载前一个子树。
+
+上面这种方式每次会生成一个全新组件，导致重新挂载。这不仅仅是性能问题 - 重新挂载组件会导致该组件及其所有子组件的状态丢失。
+
+5. 务必复制静态方法
+
+有时在 React 组件上定义静态方法很有用。但 HOC 返回的新组件中将没有了原始组件任何的静态方法。所以我们务必要把他们进行拷贝
+
+```js
+// 可以使用 hoist-non-react-statics 自动拷贝所有非 React 静态方法
+import hoistNonReactStatic from 'hoist-non-react-statics';
+function enhance(WrappedComponent) {
+  class Enhance extends React.Component {/*...*/}
+  hoistNonReactStatic(Enhance, WrappedComponent);
+  return Enhance;
+}
+```
+
+6. Refs 不会被传递
+
+这个在上面已经有提到过了，那是因为 ref 实际上并不是一个 prop - 就像 key 一样，它是由 React 专门处理的。使用下面的方式
+
+```js
+function logProps(Component) {
+  class LogProps extends React.Component {
+    componentDidUpdate(prevProps) {
+      console.log('old props:', prevProps);
+      console.log('new props:', this.props);
+    }
+    render() {
+      const {forwardedRef, ...rest} = this.props;
+      // 将自定义的 prop 属性 “forwardedRef” 定义为 ref
+      return <Component ref={forwardedRef} {...rest} />;
+    }
+  }
+  return React.forwardRef((props, ref) => {
+    return <LogProps {...props} forwardedRef={ref} />;
+  });
+}
+```
+
+### 与第三方库协同！！
+
+React 可以被用于任何 web 应用中。它可以被嵌入到其他应用，且需要注意，其他的应用也可以被嵌入到 React。React 是一个 UI 处理库，我们仅需要关注每个库需要做的事，维护好其各自的状态便好。
+
+- 我们可以通过 ref 结合 JQuery 在适当的时机操作 dom；
+- 得益于 ReactDOM.render() 和 ReactDOM.unmountComponentAtNode() 的灵活性 React 可以被嵌入到其他 UI 库中，比如 backbone；
+- 结合 this.forceUpdate() 我们可以和其他数据管理库进行协同
+
+### 深入 JSX
+
+JSX 是 React 的特色，是 React 的 UI 模板，与 Vue 不同的是，JSX 是 xml in js，其可以做为一个普通变量与 js 集合，vue 的模板是通过指令来跟 js 绑定的。
+
+**JSX 的本质？？**
+
+实际上，JSX 仅仅只是 `React.createElement(component, props, ...children)` 函数的语法糖。
+
+```js
+<MyButton color="blue" shadowSize={2}>
+  Click Me
+</MyButton>
+// 上面会被编译成：
+React.createElement(
+  MyButton,
+  {color: 'blue', shadowSize: 2},
+  'Click Me'
+)
+```
+
+**写 JSX 的注意事项？**
+
+1. 组件声明必须在作用域内
+
+JSX 标签的第一部分指定了 React 元素的类型。大写字母开头的 JSX 标签意味着它们是 React 组件。这些标签会被编译为对命名变量的直接引用，所以，当你使用 JSX `<Foo />` 表达式时，Foo 必须包含在作用域内。
+
+2. React 必须在作用域内
+
+由于 JSX 会编译为 React.createElement 调用形式，所以 React 库也必须包含在 JSX 代码作用域内，即使它没有被引用。
+
+3. 在 JSX 类型中使用点语法
+
+在 JSX 中，你也可以使用点语法来引用一个 React 组件。当你在一个模块中导出许多 React 组件时，这会非常方便。例如，如果 MyComponents.DatePicker 是一个组件，你可以在 JSX 中直接使用
+
+```js
+import React from 'react';
+
+const MyComponents = {
+  DatePicker: function DatePicker(props) {
+    return <div>Imagine a {props.color} datepicker here.</div>;
+  }
+}
+function BlueDatePicker() {
+  return <MyComponents.DatePicker color="blue" />;
+}
+```
+
+4. 用户定义的组件必须以大写字母开头
+
+我们建议使用大写字母开头命名自定义组件。如果你确实需要一个以小写字母开头的组件，则在 JSX 中使用它之前，必须将它赋值给一个大写字母开头的变量。
+
+5. 在运行时选择类型
+
+你不能将通用表达式作为 React 元素类型。如果你想通过通用表达式来（动态）决定元素类型，你需要首先将它赋值给大写字母开头的变量
+
+```js
+import React from 'react';
+import { PhotoStory, VideoStory } from './stories';
+
+const components = {
+  photo: PhotoStory,
+  video: VideoStory
+};
+
+function Story(props) {
+  // 错误！！JSX 类型不能是一个表达式。
+  // return <components[props.storyType] story={props.story} />;
+  // 正确！！JSX 类型可以是大写字母开头的变量。
+  const SpecificStory = components[props.storyType];
+  return <SpecificStory story={props.story} />;
+}
+```
+
+**JSX 中的 Props？**
+
+1. JavaScript 表达式作为 Props
+
+你可以把包裹在 {} 中的 JavaScript 表达式作为一个 prop 传递给 JSX 元素，if 语句以及 for 循环不是 JavaScript 表达式，所以不能在 JSX 中直接使用。但是，你可以用在 JSX 以外的代码中。
+
+```HTML
+<MyComponent foo={1 + 2 + 3 + 4} />
+```
+
+2. 字符串字面量
+
+你可以将字符串字面量赋值给 prop. 如下两个 JSX 表达式是等价de：
+
+```html
+<MyComponent message="hello world" />
+
+<MyComponent message={'hello world'} />
+```
+
+当你将字符串字面量赋值给 prop 时，它的值是未转义的。所以，以下两个 JSX 表达式是等价的:
+
+```HTML
+<MyComponent message="&lt;3" />
+
+<MyComponent message={'<3'} />
+```
+
+3. Props 默认值为 “True”
+
+如果你没给 prop 赋值，它的默认值是 true。以下两个 JSX 表达式是等价的
+
+```HTML
+<MyTextBox autocomplete />
+
+<MyTextBox autocomplete={true} />
+```
+
+4. 属性展开
+
+如果你已经有了一个 props 对象，你可以使用展开运算符 ... 来在 JSX 中传递整个 props 对象。你还可以选择只保留当前组件需要接收的 props，并使用展开运算符将其他 props 传递下去.
+
+```js
+const Button = props => {
+  const { kind, ...other } = props;
+  const className = kind === "primary" ? "PrimaryButton" : "SecondaryButton";
+  return <button className={className} {...other} />;
+};
+```
+在上述例子中，kind 的 prop 会被安全的保留，所有其他的 props 会通过 ...other 对象传递。
+
+
+**JSX 中的子元素？**
+
+包含在开始和结束标签之间的 JSX 表达式内容将作为特定属性 props.children 传递给外层组件
+
+1. 字符串字面量
+
+你可以将字符串放在开始和结束标签之间，此时 props.children 就只是该字符串，因此你可以采用编写 HTML 的方式来编写 JSX。
+
+JSX 会移除行首尾的空格以及空行。与标签相邻的空行均会被删除，文本字符串之间的新行会被压缩为一个空格。因此以下的几种方式都是等价的。
+
+```js
+<div>Hello World</div>
+
+<div>
+  Hello World
+</div>
+
+<div>
+  Hello
+  World
+</div>
+
+<div>
+
+  Hello World
+</div>
+```
+
+2. JSX 子元素
+
+子元素允许由多个 JSX 元素组成。这对于嵌套组件非常有用。React 组件也能够返回存储在数组中的一组元素：
+
+```js
+render() {
+  // 不需要用额外的元素包裹列表元素！
+  return [
+    // 不要忘记设置 key :)
+    <li key="A">First item</li>,
+    <li key="B">Second item</li>,
+    <li key="C">Third item</li>,
+  ];
+}
+```
+
+3. 函数作为子元素
+
+这个有点类似于 vue 中的作用域插槽。我们可以把回调函数作为 props.children 进行传递：
+
+```js
+// 调用子元素回调 numTimes 次，来重复生成组件
+function Repeat(props) {
+  let items = [];
+  for (let i = 0; i < props.numTimes; i++) {
+    items.push(props.children(i));
+  }
+  return <div>{items}</div>;
+}
+
+function ListOfTenThings() {
+  return (
+    <Repeat numTimes={10}>
+      {(index) => <div key={index}>This is item {index} in the list</div>}
+    </Repeat>
+  );
+}
+```
+
+你可以将任何东西作为子元素传递给自定义组件，只要确保在该组件渲染之前能够被转换成 React 理解的对象
+
+4. 布尔类型、Null 以及 Undefined 将会忽略
+
+false, null, undefined, and true 是合法的子元素。但它们并不会被渲染，如果要展示，把它们转换成字符串。以下的 JSX 表达式渲染结果相同:
+
+```HTML
+<div />
+<div></div>
+<div>{false}</div>
+<div>{null}</div>
+<div>{undefined}</div>
+<div>{true}</div>
+```
+
+这有助于依据特定条件来渲染其他的 React 元素
+
+```js
+<div>
+  {showHeader && <Header />}
+  <Content />
+</div>
+// 但是！！有一些 “falsy” 值，如数字 0，仍然会被 React 渲染
+// 要解决这个问题，确保 && 之前的表达式总是布尔值
+<div>
+  {props.messages.length > 0 && <MessageList messages={props.messages} />}
+</div>
+```
+
+### 性能优化
+
+
+
+
+
+
+
+
+## React Hook？？
+
+https://juejin.cn/post/6944863057000529933?utm_source=gold_browser_extension
 
 ## Q & A
 
