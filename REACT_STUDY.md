@@ -1109,8 +1109,33 @@ false, null, undefined, and true 是合法的子元素。但它们并不会被�
 
 ### 性能优化
 
+性能优化是一个永恒的话题，优化是永无止境的。这里主要总结一下 React 的常规优化：
 
+1. UI 更新优化
 
+无论是 React 还是 Vue，他们在 UI 的更新上已经做的很多了，Vnode + diff 已经解决了大部分渲染性能问题
+
+2. 确保使用生产版本
+
+React 默认包含了许多有用的警告信息。这些警告信息在开发过程中非常有帮助。然而这使得 React 变得更大且更慢，所以你需要确保部署时使用了生产版本。
+
+关于各个打包器的打包优化，可以参考[官方文档](https://zh-hans.reactjs.org/docs/optimizing-performance.html#create-react-app)
+
+3. 使用 Performance 标签分析组件
+
+关于这里可以参考[这篇文章](https://calibreapp.com/blog/react-performance-profiling-optimization)
+
+需要注意的是在生产环境中组件会相对渲染得更快些。当然了，这能帮助你查看是否有不相关的组件被错误地更新，以及 UI 更新的深度和频率。
+
+4. 使用开发者工具中的分析器对组件进行分析
+
+关于这个工具和 React 的配合，请参考[官方指导](https://zh-hans.reactjs.org/blog/2018/09/10/introducing-the-react-profiler.html)
+
+5. 虚拟化长列表
+
+如果你的应用渲染了长列表（上百甚至上千的数据），我们推荐使用“虚拟滚动”技术。这项技术会在有限的时间内仅渲染有限的内容，并奇迹般地降低重新渲染组件消耗的时间，以及创建 DOM 节点的数量。
+
+[react-window](https://react-window.now.sh/#/examples/list/fixed-size) 和 [react-virtualized](https://bvaughn.github.io/react-virtualized/) 是热门的虚拟滚动库。 它们提供了多种可复用的组件，用于展示列表、网格和表格数据。 如果你想要一些针对你的应用做定制优化，你也可以创建你自己的虚拟滚动组件，就像 Twitter 所做的。
 
 
 
