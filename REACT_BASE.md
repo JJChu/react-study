@@ -1,4 +1,4 @@
-# React Study Book
+# React Base Study
 
 ## 基础储备
 
@@ -797,7 +797,7 @@ HOC 在 React 的第三方库中很常见，例如 Redux 的 connect 和 Relay �
 
 **为什么使用高阶组件？**
 
-使用 HOC 解决横切关注点问题，即多个组件之间复用相同逻辑。以前我们使用 mixins 来解决，[但它的问题更多](https://zh-hans.reactjs.org/blog/2016/07/13/mixins-considered-harmful.html)，诸如：命名冲突，依赖不明确...而 HOC 是以组合的方式对原组件进行扩展，而且 HOC 是纯函数，没有副作用。
+使用 HOC 解决横切关注点问题，即多个组件之间复用相同逻辑。以前我们使用 mixin 来解决，[但它的问题更多](https://zh-hans.reactjs.org/blog/2016/07/13/mixin-considered-harmful.html)，诸如：命名冲突，依赖不明确...而 HOC 是以组合的方式对原组件进行扩展，而且 HOC 是纯函数，没有副作用。
 
 **HOC 的使用注意事项？**
 
@@ -1213,6 +1213,142 @@ render() {
 
 >思考题：ReactDom.render 和 ReactDOM.createPortal 的区别？？
 
+### Profiler
+
+
+[children - 还没学到这里](https://github.com/ybning/blog/issues/19)
+
+Profiler 测量渲染一个 React 应用多久渲染一次以及渲染一次的“代价”，他能添加在 React 树中的任何地方来测量树中这部分渲染所带来的开销，这个目前不多做介绍，属于极限性能优化的一部分，[参考文档](https://zh-hans.reactjs.org/docs/profiler.html)
+
+```JS
+class Test extend Component {
+  onRenderCB = (
+    id, // 发生提交的 Profiler 树的 “id”
+    phase, // "mount" （如果组件树刚加载） 或者 "update" （如果它重渲染了）之一
+    actualDuration, // 本次更新 committed 花费的渲染时间
+    baseDuration, // 估计不使用 memoization 的情况下渲染整颗子树需要的时间
+    startTime, // 本次更新中 React 开始渲染的时间
+    commitTime, // 本次更新中 React committed 的时间
+    interactions // 属于本次更新的 interactions 的集合
+  ) => {
+    console.log('render callback')
+  }
+
+  render(
+    <App>
+      <Profiler id="Navigation" onRender={this.onRenderCB}>
+        <Navigation {...props} />
+      </Profiler>
+      <Profiler id="Main" onRender={this.onRenderCB}>
+        <Main {...props} />
+      </Profiler>
+    </App>
+  );
+}
+```
+
+### 不实用 ES6
+
+我们通常可以使用 class 来定义组件，但在不熟悉 ES6 的情况下我们也可以使用非 class 的方式，而且提供来一些新功能，比如 mixin。
+
+使用 `create-react-class` 模块我们也能定义组件，和 class 的方式很相似：
+
+```JS
+var createReactClass = require('create-react-class');
+var Greeting = createReactClass({
+  render: function() {
+    return <h1>Hello, {this.props.name}</h1>;
+  }
+});
+```
+但有一些区别，如下：
+
+1. 声明默认属性
+
+无论是函数组件还是 class 组件，都拥有 defaultProps 属性；如果使用 createReactClass() 方法创建组件，那就需要在组件中定义 `getDefaultProps()` 函数：
+```JS
+// 类式定义
+class Greeting extends React.Component { }
+Greeting.defaultProps = {
+  name: 'Mary'
+};
+// createReactClass 定义
+var Greeting = createReactClass({
+  getDefaultProps: function() {
+    return {
+      name: 'Mary'
+    };
+  }
+});
+```
+
+2. 初始化 State
+
+使用 createReactClass() 方法创建组件，需要提供一个单独的 getInitialState 方法，让其返回初始 state
+```JS
+var Counter = createReactClass({
+  getInitialState: function() {
+    return {count: this.props.initialCount};
+  }
+});
+```
+3. 自动绑定
+
+我们知道使用 class 组件时，事件回调要留意 this 的问题，但使用 createReactClass() 方法创建组件，组件中的方法会自动绑定至实例，无需多写代码。
+
+4. mixin
+
+ES6 本身是不包含任何 mixin 支持。因此，当你在 React 中使用 ES6 class 时，将不支持 mixin。使用 createReactClass 可以支持 mixin
+
+```JS
+var SetIntervalMixin = {
+  componentWillMount: function() {
+    this.intervals = [];
+  },
+  setInterval: function() {
+    this.intervals.push(setInterval.apply(null, arguments));
+  },
+  componentWillUnmount: function() {
+    this.intervals.forEach(clearInterval);
+  }
+};
+
+var createReactClass = require('create-react-class');
+
+var TickTock = createReactClass({
+  mixin: [SetIntervalMixin], // 使用 mixin
+  getInitialState: function() {
+    return {seconds: 0};
+  },
+  componentDidMount: function() {
+    this.setInterval(this.tick, 1000); // 调用 mixin 上的方法
+  },
+  tick: function() {
+    this.setState({seconds: this.state.seconds + 1});
+  },
+  render: function() {
+    return (
+      <p>
+        React has been running for {this.state.seconds} seconds.
+      </p>
+    );
+  }
+});
+
+ReactDOM.render(
+  <TickTock />,
+  document.getElementById('example')
+);
+```
+
+如果组件拥有多个 mixin，且这些 mixin 中定义了相同的生命周期方法（例如，当组件被销毁时，几个 mixin 都想要进行一些清理工作），那么这些生命周期方法都会被调用的。使用 mixin 时，mixin 会先按照定义时的顺序执行，最后调用组件上对应的方法。
+
+但是并不建议使用 mixin，它会在项目庞大后带来不可避免的维护成本。[关于 mixin 的问题以及替代方案看这里](https://github.com/tcatche/tcatche.github.io/issues/53)
+
+
+
+
+
 ## React Hook？？
 
 https://juejin.cn/post/6944863057000529933?utm_source=gold_browser_extension
@@ -1224,18 +1360,28 @@ https://juejin.cn/post/6944863057000529933?utm_source=gold_browser_extension
 1. 在 React 实现 Vue 的功能（computed...）？
 
 
-### 在 class 组件中定义方法的场景和区别？
+### 在 class 组件中定义方法的方式和区别？
 
 ```js
 class Button extends React.Component {
   constructor(props) {
     super(props);
+    // 实例方法
     this.sayHello = () => {
       console.log('hello~~');
     }
   }
+  // 原型方法（公有方法）
   sayHi() {
     console.log('Hi~~')
   }
 }
 ```
+
+### 关于使用 mixin 的问题
+
+- [在 React 中使用 mixin](https://zh-hans.reactjs.org/docs/react-without-es6.html#mixin)
+- [使用 mixin 的问题](https://zh-hans.reactjs.org/blog/2016/07/13/mixin-considered-harmful.html)
+- [使用 mixin 的问题-中文](https://github.com/tcatche/tcatche.github.io/issues/53)
+- [横切关注点](https://zh-hans.reactjs.org/docs/higher-order-components.html#use-hocs-for-crossing-cutting-concerns)
+
