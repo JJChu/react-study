@@ -867,7 +867,7 @@ function enhance(WrappedComponent) {
 
 6. Refs 不会被传递
 
-这个在上面已经有提到过了，那是因为 ref 实际上并不是一个 prop - 就像 key 一样，它是由 React 专门处理的。使用下面的方式
+这个在上面已经有提到过了，那是因为 ref 实际上并不是一个 prop - 就像 key 一样，它是由 React 专门处理的。使用 forwardRef 可以传递 ref
 
 ```js
 function logProps(Component) {
@@ -1247,7 +1247,7 @@ class Test extend Component {
 }
 ```
 
-### 不实用 ES6
+### 不使用 ES6
 
 我们通常可以使用 class 来定义组件，但在不熟悉 ES6 的情况下我们也可以使用非 class 的方式，而且提供来一些新功能，比如 mixin。
 
@@ -1343,7 +1343,630 @@ ReactDOM.render(
 
 如果组件拥有多个 mixin，且这些 mixin 中定义了相同的生命周期方法（例如，当组件被销毁时，几个 mixin 都想要进行一些清理工作），那么这些生命周期方法都会被调用的。使用 mixin 时，mixin 会先按照定义时的顺序执行，最后调用组件上对应的方法。
 
-但是并不建议使用 mixin，它会在项目庞大后带来不可避免的维护成本。[关于 mixin 的问题以及替代方案看这里](https://github.com/tcatche/tcatche.github.io/issues/53)
+但是并不建议使用 mixin，它会在项目庞大后带来不可避免的维护成本。[关于 mixin 的问题以及替代方案看这里](https://github.com/tcatche/tcatche.github.io/issues/53)。
+
+如果完全不同的组件有相似的功能，这就会产生[“横切关注点（cross-cutting concerns）“](https://zh.wikipedia.org/wiki/%E6%A8%AA%E5%88%87%E5%85%B3%E6%B3%A8%E7%82%B9)问题，也可[参考这里](https://juejin.cn/post/6844904017340940296)，简单来说某些模块在多个模块中重复出现。mixin 是解决横切关注点问题的一个典型方案，但也慢慢出现来一些问题：
+- Mixins 引入了隐式的依赖关系
+- Mixins 引起名称冲突
+- Mixins 导致滚雪球式的复杂性
+
+### 不使用 JSX
+
+每个 JSX 元素只是调用 React.createElement(component, props, ...children) 的语法糖。因此，使用 JSX 可以完成的任何事情都可以通过纯 JavaScript 完成。比如：
+
+```js
+class Hello extends React.Component {
+  render() {
+    return <div>Hello {this.props.toWhat}</div>;
+  }
+}
+
+ReactDOM.render(
+  <Hello toWhat="World" />,
+  document.getElementById('root')
+);
+```
+可以编写为不使用 JSX 的代码：
+```js
+class Hello extends React.Component {
+  render() {
+    return React.createElement('div', null, `Hello ${this.props.toWhat}`);
+  }
+}
+
+ReactDOM.render(
+  React.createElement(Hello, {toWhat: 'World'}, null),
+  document.getElementById('root')
+);
+```
+可以在[这里尝试](https://babeljs.io/repl/#?browsers=defaults%2C%20not%20ie%2011%2C%20not%20ie_mob%2011&build=&builtIns=false&corejs=3.6&spec=false&loose=false&code_lz=GYVwdgxgLglg9mABACwKYBt1wBQEpEDeAUIogE6pQhlIA8AJjAG4B8AEhlogO5xnr0AhLQD0jVgG4iAXyJA&debug=false&forceAllTransforms=false&shippedProposals=false&circleciRepo=&evaluate=false&fileSize=false&timeTravel=false&sourceType=module&lineWrap=true&presets=react&prettier=false&targets=&version=7.14.4&externalPlugins=)
+
+### 协调！！
+
+### Refs and the DOM
+
+>Refs 提供了一种方式，允许我们访问 **DOM 节点**或在 render 方法中创建的 **React 元素**。
+
+在 MVVM 框架中，我们通常使用声明式的方式去更新 & 操作 DOM，无需显式获取 DOM，但在某些情况下，你需要在典型数据流之外强制修改子组件。被修改的子组件可能是一个 React 组件的实例，也可能是一个 DOM 元素。React 提供了 Refs 接口去实现此类需求。
+
+1. 何时使用 Refs（下面是几个适合适用 refs 的情况）？
+
+- 管理焦点，文本选择或媒体播放。
+- 触发强制动画。
+- 集成第三方 DOM 库。
+
+>避免使用 refs 来做任何可以通过声明式实现来完成的事情。举个例子，避免在 Dialog 组件里暴露 open() 和 close() 方法，最好传递 isOpen 属性
+
+2. 创建 Refs
+
+可以使用 React.createRef() 创建，并通过 ref 属性附加到 React 元素。通常将 Refs 分配给实例属性，以便可以在整个组件中引用它们
+```js
+class MyComponent extends React.Component {
+  constructor(props) {
+    super(props);
+    this.myRef = React.createRef();
+  }
+  render() {
+    return <div ref={this.myRef} />;
+  }
+}
+```
+3. 访问 Refs
+
+当 ref 被传递给 render 中的元素时，对该节点的引用可以在 ref 的 current 属性中被访问。
+
+```js
+const node = this.myRef.current;
+```
+ref 的值根据节点的类型而有所不同：
+- 当 ref 属性用于 HTML 元素时，构造函数中使用 React.createRef() 创建的 ref 接收底层 DOM 元素作为其 current 属性。
+- 当 ref 属性用于自定义 class 组件时，ref 对象接收组件的挂载实例作为其 current 属性。
+- 你不能在函数组件上使用 ref 属性，因为他们没有实例（可以使用 forwardRef（可与 useImperativeHandle 结合使用），或者可以将该组件转化为 class 组件）。
+
+React 会在组件挂载时给 current 属性传入 DOM 元素，并在组件卸载时传入 null 值。**ref 会在 componentDidMount 或 componentDidUpdate 生命周期钩子触发前更新。**
+
+4. 将 DOM Refs 暴露给父组件
+
+在极少数情况下，你可能希望在父组件中引用子节点的 DOM 节点。通常不建议这样做，因为它会打破组件的封装，但它偶尔可用于触发焦点或测量子 DOM 节点的大小或位置。
+
+虽然你可以向子组件添加 ref，但这不是一个理想的解决方案，因为你只能获取组件实例而不是 DOM 节点。并且，它还在函数组件上无效。
+
+这个时候我们就可以使用 Ref 转发（forwardRef），Ref 转发使组件可以像暴露自己的 ref 一样暴露子组件的 ref。这个我们在[上面已经提到过](#refs-转发)
+
+>github markdown 定位到文档内部某个锚点的语法请[参考这里](https://www.jianshu.com/p/baa5aaab4018)
+
+
+5. 回调 Refs
+
+回调 refs 能帮你更精细地控制何时 refs 被设置和解除。
+
+可以给 ref 属性传递一个函数，这个函数中接受 React 组件实例或 HTML DOM 元素作为参数，以使它们能在其他地方被存储和访问。
+
+```js
+class CustomTextInput extends React.Component {
+  constructor(props) {
+    super(props);
+    this.textInput = null;
+    this.setTextInputRef = element => {
+      this.textInput = element;
+    };
+    this.focusTextInput = () => {
+      // 使用原生 DOM API 使 text 输入框获得焦点
+      if (this.textInput) this.textInput.focus();
+    };
+  }
+
+  componentDidMount() {
+    // 组件挂载后，让文本框自动获得焦点
+    this.focusTextInput();
+  }
+
+  render() {
+    // 使用 `ref` 的回调函数将 text 输入框 DOM 节点的引用存储到 React
+    // 实例上（比如 this.textInput）
+    return (
+      <div>
+        <input type="text" ref={this.setTextInputRef} />
+        <input type="button" value="Focus the text input" onClick={this.focusTextInput} />
+      </div>
+    );
+  }
+}
+```
+
+**更重要的是，你可以在组件间传递回调形式的 refs**，但在组件上我们不能直接使用 ref 属性传递，因为 ref 不是一个 props。
+
+```js
+function CustomTextInput(props) {
+  return (
+    <div>
+      <input ref={props.inputRef} />
+    </div>
+  );
+}
+class Parent extends React.Component {
+  render() {
+    return (
+      // 通过 inputRef prop 进行传递
+      <CustomTextInput inputRef={el => this.inputElement = el} />
+    );
+  }
+}
+```
+
+>关于回调 refs 的说明
+>如果 ref 回调函数是以内联函数的方式定义的，在更新过程中它会被执行两次，第一次传入参数 null，然后第二次会传入参数 DOM 元素。这是因为在每次渲染时会创建一个新的函数实例，所以 React 清空旧的 ref 并且设置新的。通过将 ref 的回调函数定义成 class 的绑定函数的方式可以避免上述问题，但是大多数情况下它是无关紧要的。
+>事件回调也有内联函数的问题，具体可以看[这里](#事件处理合成事件)
+
+### Render Props
+
+>术语 “render prop” 是指一种在 React 组件之间使用一个值为函数的 prop 共享代码的简单技术。具有 render prop 的组件接受一个返回 React 元素的函数，并在组件内部通过调用此函数来实现自己的渲染逻辑。其类似于 Vue 中的 scope slot，对组件内部 UI 进行个性化渲染。
+
+```js
+<DataProvider render={data => (
+  <h1>Hello {data.target}</h1>
+)}/>
+```
+
+1. 解决横切关注点（Cross-Cutting Concerns）
+
+和 HOC 类似，两者都是一种共享代码的技术，解决横切关注点的问题，但两者有相似且有不同：
+- HOC 是在组件间**共享逻辑**的一种开发模式，其是一个纯函数，接受组件，返回新组件，是在组件上层新增逻辑且不修改原组件；
+- render prop 是**共享UI和逻辑**的一种开发方式，其是一个组件，接受一个函数 prop。
+
+在一些场景中，两个技术完全可以替补，但我们要合理且灵活使用，[了解更多参考这里](https://www.zhihu.com/question/269915942/answer/351688035)和[这里](https://zhuanlan.zhihu.com/p/111873208)
+
+2. 使用 Props 而非 render
+
+render prop 是因为模式才被称为 render prop ，你不一定要用名为 render 的 prop 来使用这种模式。
+
+你还可以使用 children prop。当然，children prop 并不真正需要添加到 JSX 元素的 “attributes” 列表中。
+
+```js
+// 下面两种都是一样的效果
+<Mouse children={mouse => <p>鼠标的位置是 {mouse.x}，{mouse.y}</p>}/>
+
+<Mouse>
+  {mouse => <p>鼠标的位置是 {mouse.x}，{mouse.y}</p>}
+</Mouse>
+```
+
+3. 注意事项
+
+**将 Render Props 与 React.PureComponent 一起使用时要小心**
+
+如果你在 render 方法里创建函数，那么使用 render prop 会抵消使用 React.PureComponent 带来的优势。因为浅比较 props 的时候总会得到 false，并且在这种情况下每一个 render 对于 render prop 将会生成一个新的值。使用内联的事件函数也有同样的问题。我们都可以通过实例方法来避免这一类问题：
+
+```js
+class Mouse extends React.PureComponent {
+  // 与上面相同的代码......
+}
+
+class MouseTracker extends React.Component {
+  // 定义为实例方法，`this.renderTheCat`始终
+  // 当我们在渲染中使用它时，它指的是相同的函数
+  renderTheCat(mouse) {
+    return <Cat mouse={mouse} />;
+  }
+  render() {
+    return (
+      <div>
+        <h1>Move the mouse around!</h1>
+        <Mouse render={this.renderTheCat} />
+      </div>
+    );
+  }
+}
+```
+### 静态类型检查？？
+
+>建议在大型代码库中使用 Flow 或 TypeScript 来代替 PropTypes
+
+这篇主要是讲如何把 Flow 后者 TS 集成到你的项目中，关于工具使用不做过多介绍，可以[参照官网](https://zh-hans.reactjs.org/docs/static-type-checking.html)
+
+### 严格模式
+
+>StrictMode 是一个用来突出显示应用程序中潜在问题的工具。与 Fragment 一样，StrictMode 不会渲染任何可见的 UI。它为其后代元素触发额外的检查和警告。
+
+这个作为对应用进行诊断的开发调试工具，暂不多做介绍，后续在实战中总结，[官方看这里](https://zh-hans.reactjs.org/docs/strict-mode.html)
+
+使用方式：
+```js
+import React from 'react';
+
+function ExampleApplication() {
+  return (
+    <div>
+      <Header />
+      <React.StrictMode>
+        <div>
+          <ComponentOne />
+          <ComponentTwo />
+        </div>
+      </React.StrictMode>
+      <Footer />
+    </div>
+  );
+}
+```
+上述示例中，ComponentOne 和 ComponentTwo 以及它们的所有后代元素都将进行检查。StrictMode 目前有助于：
+- 识别不安全的生命周期
+- 关于使用过时字符串 ref API 的警告
+- 关于使用废弃的 findDOMNode 方法的警告
+- 检测意外的副作用
+- 检测过时的 context API
+
+### 使用 PropTypes 类型检查
+
+>注意：自 React v15.5 起，React.PropTypes 已移入另一个包中。请使用 [prop-types 库](https://www.npmjs.com/package/prop-types)代替
+
+除了使用 Flow 和 typescript 外，React 还内置了检查类型的功能。这和 Vue 类似，但 Vue 是在 props config 中编写，React 是写在类式或者函数式组件的静态属性上。
+
+```js
+import PropTypes from 'prop-types';
+
+class Greeting extends React.Component {
+  render() {
+    return (
+      <h1>Hello, {this.props.name}</h1>
+    );
+  }
+}
+
+Greeting.propTypes = {
+  name: PropTypes.string
+};
+```
+
+上面示例了类式组件，同样适用于 函数组件，或者是由 React.memo/React.forwardRef 创建的组件。
+
+```js
+import PropTypes from 'prop-types'
+
+function HelloWorldComponent({ name }) {
+  return <div>Hello, {name}</div>;
+}
+
+HelloWorldComponent.propTypes = {
+  name: PropTypes.string
+}
+```
+
+1. PropTypes
+
+```js
+import PropTypes from 'prop-types';
+
+MyComponent.propTypes = {
+  // 你可以将属性声明为 JS 原生类型，默认情况下
+  // 这些属性都是可选的。
+  optionalArray: PropTypes.array,
+  optionalBool: PropTypes.bool,
+  optionalFunc: PropTypes.func,
+  optionalNumber: PropTypes.number,
+  optionalObject: PropTypes.object,
+  optionalString: PropTypes.string,
+  optionalSymbol: PropTypes.symbol,
+
+  // 任何可被渲染的元素（包括数字、字符串、元素或数组）
+  // (或 Fragment) 也包含这些类型。
+  optionalNode: PropTypes.node,
+
+  // 一个 React 元素。
+  optionalElement: PropTypes.element,
+
+  // 一个 React 元素类型（即，MyComponent）。
+  optionalElementType: PropTypes.elementType,
+
+  // 你也可以声明 prop 为类的实例，这里使用
+  // JS 的 instanceof 操作符。
+  optionalMessage: PropTypes.instanceOf(Message),
+
+  // 你可以让你的 prop 只能是特定的值，指定它为
+  // 枚举类型。
+  optionalEnum: PropTypes.oneOf(['News', 'Photos']),
+
+  // 一个对象可以是几种类型中的任意一个类型
+  optionalUnion: PropTypes.oneOfType([
+    PropTypes.string,
+    PropTypes.number,
+    PropTypes.instanceOf(Message)
+  ]),
+
+  // 可以指定一个数组由某一类型的元素组成
+  optionalArrayOf: PropTypes.arrayOf(PropTypes.number),
+
+  // 可以指定一个对象由某一类型的值组成
+  optionalObjectOf: PropTypes.objectOf(PropTypes.number),
+
+  // 可以指定一个对象由特定的类型值组成
+  optionalObjectWithShape: PropTypes.shape({
+    color: PropTypes.string,
+    fontSize: PropTypes.number
+  }),
+
+  // An object with warnings on extra properties
+  optionalObjectWithStrictShape: PropTypes.exact({
+    name: PropTypes.string,
+    quantity: PropTypes.number
+  }),
+
+  // 你可以在任何 PropTypes 属性后面加上 `isRequired` ，确保
+  // 这个 prop 没有被提供时，会打印警告信息。
+  requiredFunc: PropTypes.func.isRequired,
+
+  // 任意类型的必需数据
+  requiredAny: PropTypes.any.isRequired,
+
+  // 你可以指定一个自定义验证器。它在验证失败时应返回一个 Error 对象。
+  // 请不要使用 `console.warn` 或抛出异常，因为这在 `oneOfType` 中不会起作用。
+  customProp: function(props, propName, componentName) {
+    if (!/matchme/.test(props[propName])) {
+      return new Error(
+        'Invalid prop `' + propName + '` supplied to' +
+        ' `' + componentName + '`. Validation failed.'
+      );
+    }
+  },
+
+  // 你也可以提供一个自定义的 `arrayOf` 或 `objectOf` 验证器。
+  // 它应该在验证失败时返回一个 Error 对象。
+  // 验证器将验证数组或对象中的每个值。验证器的前两个参数
+  // 第一个是数组或对象本身
+  // 第二个是他们当前的键。
+  customArrayProp: PropTypes.arrayOf(function(propValue, key, componentName, location, propFullName) {
+    if (!/matchme/.test(propValue[key])) {
+      return new Error(
+        'Invalid prop `' + propFullName + '` supplied to' +
+        ' `' + componentName + '`. Validation failed.'
+      );
+    }
+  })
+};
+```
+
+2. 限制单个元素
+
+可以通过 PropTypes.element 来确保传递给组件的 children 中只包含一个元素。
+
+```js
+import PropTypes from 'prop-types';
+
+class MyComponent extends React.Component {
+  render() {
+    // 这必须只有一个元素，否则控制台会打印警告。
+    const children = this.props.children;
+    return (
+      <div>{children}</div>
+    );
+  }
+}
+
+MyComponent.propTypes = {
+  children: PropTypes.element.isRequired
+};
+```
+
+3. 默认 Prop 值
+
+可以通过配置特定的 defaultProps 属性来定义 props 的默认值：
+
+```js
+class Greeting extends React.Component {
+  // 方式1：如果你正在使用像 transform-class-properties 的 Babel 转换工具，你也可以在 React 组件类中声明 defaultProps 作为静态属性
+  // 此语法提案还没有最终确定，需要进行编译后才能在浏览器中运行
+  static defaultProps = {
+    name: 'stranger'
+  }
+
+  render() {
+    return <h1>Hello, {this.props.name}</h1>;
+  }
+}
+// 方式2：defaultProps
+Greeting.defaultProps = {
+  name: 'Stranger'
+};
+
+// 渲染出 "Hello, Stranger"：
+ReactDOM.render(
+  <Greeting />,
+  document.getElementById('example')
+);
+```
+
+propTypes 类型检查发生在 defaultProps 赋值后，所以类型检查也适用于 defaultProps。
+
+### 非受控组件
+
+>大多数情况下，我们推荐使用 受控组件 来处理表单数据。在一个受控组件中，表单数据是由 React 组件来管理的。另一种替代方案是使用非受控组件，这时表单数据将交由 DOM 节点来处理。
+
+非受控组件和传统的 html form 元素很相似，我们只要在需要时通过 ref 来获取它的 value 值：
+
+```js
+class NameForm extends React.Component {
+  constructor(props) {
+    super(props);
+    this.handleSubmit = this.handleSubmit.bind(this);
+    this.input = React.createRef();
+  }
+  handleSubmit(event) {
+    alert('A name was submitted: ' + this.input.current.value);
+    event.preventDefault();
+  }
+  render() {
+    return (
+      <form onSubmit={this.handleSubmit}>
+        <label>Name: <input type="text" ref={this.input} /></label>
+        <input type="submit" value="Submit" />
+      </form>
+    );
+  }
+}
+```
+
+关于使用非受控组件还是受控组件，我们首先需要了解它们的特点：
+
+**非受控组件**
+- 编写更简单，无需通过 state 和 change callback 去更新 UI 和状态；
+- 数据储存在 DOM 节点中，我们无需插手，但有时候更容易同时集成 React 和非 React 代码；
+- 只需在使用时从 form 元素中 pull 出对应的 value 值；
+
+**受控组件**
+- 编写相对麻烦，需要使用 state 和 change callback 去更新 UI 和状态；
+- 因为受控组件是通过 state “push” UI进行更新的，所有我们可以“从中作梗”：
+  - in-place feedback, like validations（就地反馈，实时校验）
+  - disabling the button unless all fields have valid data（禁用按钮直到表单输入有效值）
+  - enforcing a specific input format, like credit card numbers（强制格式化输入，比如银行卡）
+
+1. 不通 form element 的受控组件
+
+Element |	Value property | Change callback | New value in the callback
+--- | --- | --- | ---
+`<input type="text" />` |	value="string" | onChange | event.target.value
+`<input type="checkbox" />` | checked={boolean} | onChange | event.target.checked
+`<input type="radio" />` | checked={boolean} | onChange | event.target.checked
+`<textarea />` | value="string" | onChange | event.target.value
+`<select />` | value="option value" | onChange | event.target.value
+
+`<input type="file">` 可以让用户选择一个或多个文件上传到服务器，或者通过使用 File API 进行操作，在 React 中，`<input type="file" />` 始终是一个非受控组件，因为它的值只能由用户设置，而不能通过代码控制，
+
+2. 默认值
+
+在非受控组件中，你经常希望 React 能赋予组件一个初始值，但是不去控制后续的更新，此时可以使用 defaultValue 属性，而不是 value。在一个组件已经挂载之后去更新 defaultValue 属性的值，不会造成 DOM 上值的任何更新。
+
+```js
+render() {
+  return (
+    <form onSubmit={this.handleSubmit}>
+      <label>Name: <input defaultValue="Bob" type="text" ref={this.input} /></label>
+      <input type="submit" value="Submit" />
+    </form>
+  );
+}
+```
+同样，`<input type="checkbox">` 和 `<input type="radio">` 支持 defaultChecked，`<select>` 和 `<textarea>` 支持 defaultValue。
+
+## API Reference
+
+### 顶层 API
+
+1. 组件
+
+定义 React 组件的方式：
+- class A extends React.Component { render(){} };
+- class A extends React.PureComponent { render(){} };
+- createReactClass({ render(){} })；
+- function A(props) { }
+- const A = React.memo(function A(props) { }, areEqual);
+
+React.Component VS React.PureComponent
+- React.PureComponent 中以浅层对比 prop 和 state 的方式来实现了 `shouldComponentUpdate(nextProps, nextState)`；
+- React.PureComponent 中的 `shouldComponentUpdate()` 将跳过所有子组件树的 prop 更新。因此，请确保所有子组件也都是“纯”的组件。
+
+>注意：React.PureComponent 仅作对象的浅层比较，修改深层数据可能无法对比差别，所以：
+>- 在你的 props 和 state 较为简单时，才使用 React.PureComponent
+>- 对性能没有极致要求时，可尽量避免使用
+>- 可在深层数据结构发生变化时调用 forceUpdate() 来确保组件被正确地更新。你也可以考虑使用 immutable 对象加速嵌套数据的比较。
+
+
+React.memo vs VS React.PureComponent
+- React.memo 为高阶组件（参数为一个组件，返回新组件），使用方式：`const MyComponent = React.memo(function MyComponent(props) { });`
+- React.memo 的功用和 React.PureComponent 类似，但 React.memo 是作用于函数组件的，因为函数组件没有类似于 shouldComponentUpdate 的钩子函数。
+- React.memo 仅检查 props 变更，但 PureComponent 检查 props 和 state 更新，因为函数组件是没有 state 的（在不使用 Hooks 的情况下）；
+- 两个都只会对复杂对象做浅层对比，但都可以通过自定义比较函数。React.memo 第二个参数可以是一个函数：`function areEqual(prevProps, nextProps) { }`；PureComponent 也可以通过自定义 shouldComponentUpdate 来实现。
+- areEqual 和 shouldComponentUpdate 的返回值的相反的，areEqual 返回 true 代表相等，不更新；shouldComponentUpdate 返回 true 代表需要更新。
+
+
+2. 创建 React 元素
+
+**createElement()**
+
+语法：
+```js
+React.createElement(
+  type,
+  [props],
+  [...children]
+)
+```
+创建并返回指定类型的新 React 元素，其中 type 参数可以是标签名字符串、可以是 React 组件类型（class 组件或函数组件）、或是 React fragment 类型。
+
+使用 JSX 编写的代码将会被转换成使用 React.createElement() 的形式。如果使用了 JSX 方式，那么一般来说就不需要直接调用 React.createElement()。
+
+**createFactory()**
+
+```js
+React.createFactory(type)
+```
+只有一个参数，与 React.createElement() 相似，此辅助函数已废弃。
+
+3. 转换元素
+
+**cloneElement()**
+
+```js
+React.cloneElement(
+  element,
+  [config],
+  [...children]
+)
+```
+
+关于 cloneElement 的应用场景，可参考这里 https://juejin.cn/post/6844903983975235592
+
+
+**isValidElement()**
+
+```js
+React.isValidElement(object)
+```
+验证对象是否为 React 元素，返回值为 true 或 false
+
+
+**React.Children**
+
+需要注意，props.children 的值有三种可能：如果当前组件没有子节点，它就是 undefined；如果有一个子节点，数据类型是 object；如果有多个子节点，数据类型就是 array。而 React.Children 提供了用于处理 props.children 不透明数据结构的实用方法，比如要遍历子节点、限制子节点的种类和数量（细化到组件类型）、强制使用某一种子节点（比如 ​Col​ 组件必须做为 ​Row​ 组件的第一层子节点出现）。
+
+- `React.Children.map(children, function[(thisArg)])` 在 children 里的每个直接子节点上调用一个函数，并将 this 设置为 thisArg。
+  - 如果 children 是一个数组，它将被遍历并为数组中的每个子节点调用该函数；
+  - 如果子节点为 null 或是 undefined，则此方法将返回 null 或是 undefined，而不会返回数组；
+  - 如果 children 是一个 Fragment 对象，它将被视为单一子节点的情况处理，而不会被遍历；
+- `React.Children.forEach(children, function[(thisArg)])`，与 map 类似，但它不会返回一个数组；
+- `React.Children.count(children)`，返回 children 中的组件总数量，等同于通过 map 或 forEach 调用回调函数的次数；
+- `React.Children.only(children)`，验证 children 是否只有一个子节点（一个 React 元素），如果有则返回它，否则此方法会抛出错误。
+  - `React.Children.only()` 不接受 `React.Children.map()` 的返回值，因为它是一个数组而并不是 React 元素
+- `React.Children.toArray(children)`，将 children 这个复杂的数据结构以数组的方式扁平展开并返回，并为每个子节点分配一个 key。当你想要在渲染函数中操作子节点的集合时，它会非常实用，特别是当你想要在向下传递 this.props.children 之前对内容重新排序或获取子集时。
+
+>注意：`React.Children.toArray()` 在拉平展开子节点列表时，更改 key 值以保留嵌套数组的语义。也就是说，toArray 会为返回数组中的每个 key 添加前缀，以使得每个元素 key 的范围都限定在此函数入参数组的对象内。
+
+关于 React.Chilldren 的使用场景后期可以多总结一下？？，可参考[这片文章](https://zhuanlan.zhihu.com/p/115344190)和[这片](https://zhuanlan.zhihu.com/p/115344190)
+
+4. Fragments 组件
+
+React.Fragment 组件能够在不额外创建 DOM 元素的情况下，让 render() 方法中返回多个元素，简写为 `<></>`。
+
+5. Refs
+
+1) React.createRef
+
+创建一个能够通过 ref 属性附加到 React 元素的 ref。通过 `.current` 访问。
+
+2) React.forwardRef
+
+会创建一个React组件，这个组件能够将其接受的 ref 属性转发到其组件树下的另一个组件中，常用一下两种场景（在上面都有实际场景）：
+- 转发 refs 到 DOM 组件
+- 在高阶组件中转发 refs
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -1352,6 +1975,10 @@ ReactDOM.render(
 ## React Hook？？
 
 https://juejin.cn/post/6944863057000529933?utm_source=gold_browser_extension
+
+https://juejin.cn/post/7009946969099468831?utm_source=gold_browser_extension#comment
+
+
 
 ## Q & A
 
